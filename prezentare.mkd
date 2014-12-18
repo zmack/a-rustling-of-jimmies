@@ -1,0 +1,1018 @@
+# Brave new world
+
+# "Cloud" Languages
+
+# https://al3x.net/2014/09/16/thoughts-on-five-years-of-emerging-languages.html
+> If I’m being held to another prediction, it’s that the insurgent languages five years from now will be – like Go, Rust, and Julia – untethered by a host VM. The low-power, high-connectivity Internet of Things world we’re moving towards leaves far less room for fat VMs. The languages that haven’t abandoned their hosts by then will be thought of as baggage from the resource-inefficient early days of cloud computing.
+
+# Go
+> Go is an open source programming language that makes it easy to build simple, reliable, and efficient software.
+
+## Applications
+  - These days used mostly for infrastructure work
+  - Vitess
+  - Docker lead the way
+  - InfluxDB
+  - Etcd
+
+## Yay
+  - Easy
+  - Safe
+  - Fast
+
+## Meh
+  - No generics
+  - GC is not optional
+  - Linking to C libs is weird
+
+# D lang
+> D is a language with C-like syntax and static typing. It pragmatically combines efficiency, control, and modeling power, with safety and programmer productivity.
+
+## Applications
+  - uuuh :(
+  - some drivers @ FB
+  - C++ parsers
+
+## Yay
+  - Fast
+  - Links with C libs and code with no issues
+  - Generics
+
+## Meh
+  - Adoption lagging behind
+
+
+# Rust
+> Rust is a systems programming language that runs blazingly fast, prevents almost all crashes, and eliminates data races. 
+
+## Applications
+  - Servo
+  - Game engines ( q3, rust-doom, piston )
+  - Web frameworks ( doh )
+  - Crypto
+  - Kitchen Sink ( new language, many wheels )
+
+## Yay
+  - Easy to link with C libs
+  - Optional GC
+  - Generics
+  - Memory safety
+
+## Meh
+  - RAII is a pain
+  - Borrow checker
+
+# Syntax
+## Typical hello world
+
+```rust
+fn hello_world() {
+    println!("Hello world")
+}
+```
+
+## Ok, ceva mai complicat
+
+```rust
+fn main() {
+    add_two_things(1,2)
+}
+
+fn add_two_things(a: uint, b: uint) -> uint {
+    a + b
+}
+```
+
+Barfs. Omg wtf u guise
+
+```rust
+fn main() {
+    add_two_things(1,2);
+}
+
+fn add_two_things(a: uint, b: uint) -> uint {
+    a + b
+}
+```
+
+Semicolons matter.
+
+## Structs
+
+### Much like in Go, structs are at the core of Rust oop
+
+```rust
+struct File {
+    filename: String,
+    file_size: u64,
+    hide: bool
+}
+```
+
+Ok, let's make one of these
+
+```rust
+let other_file = File {
+    filename: "Jesus is my shepherd".to_string(),
+    file_size: 1,
+    hide: false
+};
+```
+
+Kinda weird, kinda gross, let's make it into something that we can actually use
+
+```rust
+impl File {
+    fn new(name: &str, size: u64, hide: bool) -> File {
+        File {
+            filename: name.to_string(),
+            file_size: size,
+            hide: hide
+        }
+    }
+}
+```
+
+### Optional params?
+https://github.com/rust-lang/rfcs/pull/152
+> Closing. While optional arguments are an oft-requested feature, it has long been our position that it is non-essential and can be reconsidered backwards-compatibly at some point in the future. Thank you.
+
+Let's print some of this crap out
+
+```rust
+    let file = File::new("This is a chaser", 10, false);
+    println!("File name is {}", file.filename)
+```
+
+What if i want to print the whole thing ?
+
+```rust
+#[deriving(Show)]
+struct File {
+    filename: String,
+    file_size: u64,
+    hide: bool
+}
+```
+
+> File is File { filename: This is a chaser, file_size: 10, hide: false }
+
+## Enums
+
+```rust
+enum URI {
+    HTTP(String),
+    HTTPS(String),
+    FTP(String),
+    None
+}
+```
+
+Think case classes, sort of.
+Most use cases will be something of this sort:
+
+
+```rust
+enum URI {
+    HTTP(String),
+    HTTPS(String),
+    FTP(String),
+    None
+}
+
+fn get_url(uri: String) -> URI {
+    let substr = uri[][0..5];
+    match substr {
+        "https" => URI::HTTPS(uri.clone()),
+        "http:" => URI::HTTP(uri.clone()),
+        "ftp:/" => URI::FTP(uri.clone()),
+        _ => URI::None
+    }
+}
+
+fn main() {
+    println!("Url is : {}", get_url("https://foo.bar".to_string()));
+    println!("Url is : {}", get_url("http://foo.bar".to_string()));
+    println!("Url is : {}", get_url("ftp://foo.bar".to_string()));
+    println!("Url is : {}", get_url("whatever://foo.bar".to_string()));
+}
+```
+
+
+Obviously you can do weird fucking shit with it
+
+```rust
+#[deriving(Show,Clone)]
+enum DiskStruct {
+    File(String),
+    Dir(String)
+}
+
+impl DiskStruct {
+    fn new(path: &str) -> DiskStruct {
+        match path.slice_from(path.len()-1) {
+            "/" => DiskStruct::Dir(path.to_string()),
+            _ => DiskStruct::File(path.to_string())
+        }
+    }
+
+    fn path(&self) -> String {
+        match self.clone() {
+            DiskStruct::File(s) => s,
+            DiskStruct::Dir(s) => s
+        }
+    }
+    fn inspect(&self) {
+        println!("Self is {}", self.path());
+    }
+}
+
+fn main() {
+  DiskStruct::new("/foo/bar/baz/").inspect();
+}
+```
+
+## Borrow checker
+- Figures out what's safe to use where
+- By default everything you use will not be mutable
+
+```rust
+fn pointer_types() {
+    let a = "I love mary poppins".to_string();
+    printme(a);
+    println!("Sup {}", a);
+}
+
+fn printme(s: String) {
+    println!("Hey {}", s)
+}
+```
+
+Ugh barf.
+
+> /Users/zmack/projects/rust-show/src/main.rs:12:5: 12:27 note: expansion site
+> /Users/zmack/projects/rust-show/src/main.rs:11:13: 11:14 note: ` moved here because it has type `collections::string::String`, which is non-copyable
+> /Users/zmack/projects/rust-show/src/main.rs:11     printme(a);
+
+So, in esenta n-o sa te lase sa mai folosesti aia pentru ca
+e mutata. Adica tu i-ai dat cuiva si acum nu mai ai niciun drept asupra ei.
+
+Ce variante ai at this point:
+
+```rust
+fn pointer_types() {
+    let a = "I love mary poppins".to_string();
+    printme(a.clone());
+    println!("Sup {}", a);
+}
+
+fn printme(s: String) {
+    println!("Hey {}", s);
+}
+```
+
+Woo clone! Best thing ever, amirite? Meh, not really.
+Some overhead to that.
+
+```rust
+fn pointer_types() {
+    let a = "I love mary poppins".to_string();
+    let a = printme(a);
+    println!("Sup {}", a);
+}
+
+fn printme(s: String) -> String {
+    println!("Hey {}", s);
+    s
+}
+```
+
+Ok how about this? Cedezi controlul in printme dupa care il iei
+inapoi explicit pentru ca nenea ti-l returneaza.
+
+Asta sa zicem ca merge daca ai un param, dar in cazul in care ai
+mai multi, o sa-ti injuri toti mortii si ranitii
+
+Ok, next, borrowing pointers
+
+```rust
+fn pointer_types() {
+    let a = "I love mary poppins".to_string();
+    printme(&a);
+    println!("Sup {}", a);
+}
+
+fn printme(s: &String) {
+    println!("Hey {}", s);
+}
+```
+
+Ok, are ampersand, deci daca venim din C ne asteptam sa fie o adresa
+sure enough, it is:
+
+```rust
+  let a = "I love mary poppins".to_string();
+  println!("Sup {:p}", &a);
+```
+
+Un pointer imutabil putem sa-l imprumutam de cate ori vrem, cat timp sunt pe acelasi thread
+
+```rust
+fn main() {
+    let a = 1;
+    println!("Incrementing {}", add(&a, &a))
+}
+
+fn add(a: &uint, b: &uint) -> uint {
+    *a + *b
+}
+```
+Trebuie sa bag grenade peste tot pentru ca altfel saracul crede ca vorbim despre adrese, si o sa faca urat
+
+Aha! Dar pot sa adun adresele sanatatii? Trebuie sa pot!
+
+```rust
+fn add<'a, 'b>(a: &'a uint, b: &'b uint) -> &'a uint {
+    a + b
+}
+```
+
+Chestiile cu apostrof sunt lifetimes. Ajungem la ele pentru ca noi returam o referinta, at this point
+si rust trebuie sa stie cand e ok sa ucida ce alocam noi.
+
+Ce ii zicem aici e ca luam doi parametri a si b, si vrem ca ce returnam sa aiba acelasi lifetime ca a.
+
+In momentul in care ala se duce, sa se duca si ce returnam noi.
+
+Anyway, asta nu merge, pentru ca rust nu vrea sa aplice + pe tipul respectiv.
+
+Dodged that bullet.
+
+
+Ok, toate bune, dar hai sa vedem ce se intampla cu chestii mutabile
+
+```rust
+fn add_to(a: &mut uint, b: uint) -> uint {
+    *a = *a + b;
+    *a
+}
+
+fn main() {
+    let mut a = 1;
+    println!("Incrementing {} {}", add_to(&mut a, 1), a);
+}
+```
+
+> Incrementing 2 2
+
+
+Ok, ne-am prins si cu asta, cel mai vizibil e cand incercam sa facem borrow.
+
+```rust
+  let mut a:uint = 1;
+  let b = &a;
+  let c = &a;
+```
+
+Asta? Totally works, pot sa-l iau pe &a pana vomit.
+
+```rust
+  let mut a:uint = 1;
+  let b = &mut a;
+  let c = &mut a;
+```
+
+Nope, sunt limitat la un singur borrow mutabil.
+
+Toatea astea sunt tipuri alocate pe stack.
+
+Mai avem 
+- Box<T> - Alocat in heap cu un singur owner
+
+- Rc<T> - Resource counted, in heap
+- Arc<T> - Atomically Resource counted, in heap, threadsafe usage
+
+La chestiile cu RC e relativ clar cum se face dealocarea, nimic nou.
+
+La Box compilatorul determina la compile-time unde ies din scope variabilele respective,
+si insereaza acolo codul pentru dealocare.
+
+Totul se bazeaza pe memory regions, paper aici http://www.cs.umd.edu/projects/cyclone/papers/cyclone-regions.pdf
+if you're so inclined.
+
+Cam asta ar fi cu pointers, o sa mai vorbim despre ei cand ajungem la concurenta
+
+## Closures
+
+Fix a ce suna, le stiti din tot restul universului
+
+```rust
+fn main() {
+    print_innards(|x:uint| {
+        x * 2
+    })
+}
+
+fn print_innards(fun: |uint| -> uint) {
+    println!("Result is {}", fun(2));
+}
+```
+
+Captures context, all of that neat stuff
+
+## Getting a 'class' up and running
+
+Asa, ziceam ca struct e mama si tata lui cand e sa facem oop.
+Am mai ars-o sandokan la enum, acum hai sa fim oameni seriosi si sa facem un struct.
+
+```rust
+#[deriving(Show,Clone)]
+struct File {
+    filename: String,
+    file_size: u64,
+    hide: bool
+}
+
+impl File {
+    fn new(name: &str, size: u64, hide: bool) -> File {
+        File {
+            filename: name.to_string(),
+            file_size: size,
+            hide: hide
+        }
+    }
+
+    fn size_in_mb(&self) -> u64 {
+        self.file_size >> 20
+    }
+}
+
+fn main() {
+    let file = File::new("Jerry", 100_000_000, false);
+    println!("File size is {}", file.size_in_mb());
+}
+```
+
+Ok, ne prindem care e diferenta dintre metodele pe instanta si alea statice.
+Ce se intampla daca scoatem & si il lasam mutat ?
+
+```rust
+#[deriving(Show,Clone)]
+struct File {
+    filename: String,
+    file_size: u64,
+    hide: bool
+}
+
+impl File {
+    fn new(name: &str, size: u64, hide: bool) -> File {
+        File {
+            filename: name.to_string(),
+            file_size: size,
+            hide: hide
+        }
+    }
+
+    fn size_in_mb(self) -> u64 {
+        self.file_size >> 20
+    }
+}
+
+fn main() {
+    let file = File::new("Jerry", 100_000_000, false);
+    println!("File size is {}", file.size_in_mb());
+}
+```
+
+Still works. Foarte tare.
+
+```rust
+#[deriving(Show,Clone)]
+struct File {
+    filename: String,
+    file_size: u64,
+    hide: bool
+}
+
+impl File {
+    fn new(name: &str, size: u64, hide: bool) -> File {
+        File {
+            filename: name.to_string(),
+            file_size: size,
+            hide: hide
+        }
+    }
+
+    fn size_in_mb(self) -> u64 {
+        self.file_size >> 20
+    }
+}
+
+fn main() {
+    let file = File::new("Jerry", 100_000_000, false);
+    println!("File size is {}", file.size_in_mb());
+    println!("File size is {}", file.size_in_mb());
+}
+```
+
+> /Users/zmack/projects/rust-show/src/main.rs:9:33: 9:37 note: ile` moved here because it has type `File`, which is non-copyable
+> /Users/zmack/projects/rust-show/src/main.rs:9     println!("File size is {}", file.size_in_mb());
+>                                                                               ^~~~
+                                                                              
+Ok, so duda aia e mutata in acest moment, we can't use it. De asteptat.
+
+In interiorul modulului toate chestiile sunt publice, regulile de vizibilitate se aplica doar in afara.
+
+Asa ca am pub struct, pub pentru fiecare camp din struct pe care vreau sa-l fac accesibil si pentru fiecare
+metoda pe care vreau s-o fac accesibila.
+
+Not a huge hassle, dar na.
+
+## Traits
+
+Cel mai usor mod in care poti sa descrii trait-urile e ca sunt un fel de interfete.
+Rolul e absolut similar.
+
+So, avem asa:
+
+```rust
+pub struct Bar {
+    pub name: String
+}
+
+impl Operation for Bar {
+    fn zero(&self) -> uint {
+        0
+    }
+}
+
+impl OtherOperation for Bar {
+}
+
+pub trait Operation {
+    fn zero(&self) -> uint;
+}
+
+pub trait OtherOperation: Operation {
+    fn one(&self) -> uint {
+        self.zero() + 1
+    }
+}
+```
+
+```rust
+#[deriving(Show)]
+pub struct Foo {
+    pub name: String,
+    age: u64,
+}
+
+pub struct Bar {
+    pub name: String
+}
+
+impl Foo {
+    pub fn new(name: &str, age: u64) -> Foo {
+        Foo {
+            name: name.to_string(),
+            age: age,
+        }
+    }
+}
+
+pub trait Barkable {
+    fn bark(&self);
+}
+
+impl Barkable for Foo {
+    fn bark(&self) {
+        println!("Woof");
+    }
+}
+
+impl Barkable for Bar {
+    fn bark(&self) {
+        println!("Boof");
+    }
+}
+
+fn bark<T: Barkable>(z: &T) {
+    z.bark();
+}
+
+fn main() {
+    let foo = Foo::new("Sup", 10);
+    let bar = Bar { name: "Sup".to_string() };
+    bark(&foo);
+    bark(&bar);
+}
+```
+
+Si sa zicem ca am nevoie de ceva care implementeaza mai multe traits
+
+```rust
+fn bark<T: Barkable>(z: &T) {
+    println!("{} -> ", z);
+    z.bark();
+}
+```
+
+Daca vreau sa folosesc println! acolo, nu o sa pot in cazul asta, pentru ca println! are nevoie
+de trait-ul de Show, si in cazul asta rust o sa faca gat ca nu-l are.
+
+Ok, sa adaugam ala drept constraint
+
+
+```rust
+fn bark<T: Barkable + Show>(z: &T) {
+    println!("{} -> ", z);
+    z.bark();
+}
+```
+
+Acum problema devine ca Bar nu implementeaza chestia asta.
+La Foo am rezolvat problema initial prin adnotari.
+
+```rust
+#[deriving(Show)]
+pub struct Foo {
+    pub name: String,
+    age: u64,
+}
+```
+
+Asta se uita la ce primitive si ce structura are struct-ul tau si iti baga el
+o implementare de trait relativ sane.
+
+Pentru Bar, trebuie sa facem noi tot dansul ala de mana
+
+
+```rust
+impl Show for Bar {
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
+        let description = format!("Bar {{ name: {} }}", self.name);
+        fmt.write(description.as_bytes())
+    }
+}
+```
+
+Chestii de explicat aici:
+Rezultatul e in esenta un Either<T, E>. Cam asta e pattern-ul in rust pentru majoritatea
+operatiilor.
+
+Asa cum in go ai 
+
+```go
+result, err := modul.Operatie(foo, bar)
+
+if err != nil {
+  // omg die
+}
+```
+
+O chestie similara o ai in rust unde 'the gospel' e sa folosesti results.
+
+## Error handling patterns
+
+Ok, ziceam despre erori. Usual pattern is:
+
+```rust
+let path = Path::new("/Users/zmack/thing.txt");
+let file = match File::open(&path) {
+    Ok(f) => f,
+    Err(e) => {
+        println!("File open failed - {}", e);
+        return;
+    }
+};
+```
+
+De cele mai multe ori, insa, probabil ca n-o sa vrei sa faci fix asta.
+As in, n-o sa vrei sa just straight up print something and bail daca e sa se buseasca ceva.
+
+Daca in mod real nu iti pasa in niciun hal si ar trebui sa moara programul cand se buseste o chestie
+
+```rust
+let file = File::open(&path).unwrap();
+```
+
+Si atunci cand moare chestia asta o sa-ti moara cu 
+> task '<main>' panicked at 'called `Result::unwrap()` on an `Err` value:
+> couldn't open path as file (no such file or directory (No such file or directory);
+> path=/Users/zmack/thing.txt; mode=open; access=read)', /Users/zmack/projects/rust/src/libcore/result.rs:745 
+
+Not cool, dar daca esti in faza de prototyping sa zicem ca e ok, maybe ?
+
+Anyway, pattern-ul asta e atat de prevalent, incat e si un macro pentru chestia asta, si anume try!
+
+```rust
+fn main() {
+    let path = Path::new("/Users/zmack/thing.txt");
+    match open_file(&path) {
+        Ok(_) => println!("Ok"),
+        Err(e) => println!("Error {}", e),
+    };
+}
+
+fn open_file(path: &Path) -> IoResult<StdFile> {
+    let file = try!(StdFile::open(path));
+    Ok(file)
+}
+```
+
+Clar toata chestia asta e foarte contrived si un exemplu stupid in general, dar unele chestii are worth noting.
+
+For one, e foarte util pentru decluttering, pentru ca daca am acelasi tip de erori peste tot ( IoError,
+in cazul asta ), in loc sa am match-uri peste tot, pot sa pun try! si chestiile just trickle up.
+
+Partea proasta e fix aia de 'trebuie sa fie acelasi tip de erori'.
+
+Odds are, nu or sa fie la fel.
+
+Fix pentru chestiile de genul asta, am FromError
+
+```rust
+fn main() {
+    let path = Path::new("/Users/zmack/thing.txt");
+    match open_file(&path) {
+        Ok(_) => println!("Ok!"),
+        Err(e) => println!("Not Ok {}!", e),
+    };
+}
+
+#[deriving(Show)]
+enum OpenError {
+    Io(IoError),
+    Generic(String)
+}
+
+impl FromError<IoError> for OpenError {
+    fn from_error(err: IoError) -> OpenError {
+        OpenError::Io(err)
+    }
+}
+
+impl FromError<String> for OpenError {
+    fn from_error(err: String) -> OpenError {
+        OpenError::Generic(err)
+    }
+}
+
+fn open_file(path: &Path) -> Result<StdFile, OpenError> {
+    let stat = try!(path.stat());
+    let file = try!(StdFile::open(path));
+
+    return Err(FromError::from_error("Something else got busted".to_string()));
+}
+```
+
+Cea mai scarboasa chestie de aici ( imho ) e Err-ul ala, care e acolo doar
+pentru consistenta cu restul handling-ului.
+
+Ce e drept primele doua chestii returneaza tot IoResult. respectiv un Result<\_, IoError>
+dar ideea de baza e aceeasi, chiar daca as avea mai multe tipuri de results.
+
+Pe happy path nu imi pasa global, singura chestie pentru care trebuie sa am grija sa fie 
+handling-ul consistent e the sad path.
+
+
+## Concurrency
+
+Spawn!
+
+```rust
+fn main() {
+    spawn(move || {
+        println!("I concur");
+    });
+
+    println!("I don't");
+}
+```
+
+Sintaxa schimbata acum cateva zile ( desi a fost in the works de ceva timp ), asa ca
+now nothing works. Fun times.
+
+Anyway, inainte era proc() { .. }, acum s-a transformat in asta, to some extent, ca sa fie
+mai consistenta cu sintaxa pentru functii anonime.
+
+La fel ca si la closures, captureaza contextul, dar la move closures, quite obviously, asta e
+moved.
+
+Respectiv, ai copii diferite.
+
+To wit:
+
+```rust
+  let mut a:uint = 10;
+
+  spawn(move || {
+      println!("moved A is {}", a);
+  });
+
+  a = a * 2;
+  println!("A is {}", a);
+```
+
+> A is 20
+> moved A is 10
+
+Aici e cam evident, ca bla, copii, ints, whatever.
+
+Hai sa vedem ce se intampla cu referinte.
+
+```rust
+    let mut a:uint = 10;
+    let b = &a;
+
+    spawn(move || {
+        println!("moved A is {}", b);
+    });
+
+    println!("A is {}", b);
+```
+
+Sure enough, asta moare pentru ca a doesn't live enough.
+
+Bine, deci chestia asta e safe, dar nu e really memory sharing,
+ceea ce e cam oribil.
+
+Hai sa vedem cum putem sa facem memory sharing intre doua task-uri acum.
+
+```rust
+fn main() {
+    let a: Vec<uint> = vec![];
+
+    spawn(move || {
+        a.push(1);
+        a.push(2);
+        for x in a.iter() {
+            println!("-> {}", x);
+        };
+    });
+
+    for x in a.iter() {
+        println!("=> {}", x);
+    }
+}
+```
+
+Worst possible code ever, hai sa vedem ce se intampla.
+
+> /Users/zmack/projects/rust-show/src/main.rs:31:14: 31:15 error: use of moved value: `a`
+> /Users/zmack/projects/rust-show/src/main.rs:31     for x in a.iter() {
+
+Ok, deci ne-a faultat direct pentru ca am incercat sa folosim a.
+
+Daca il clonam o sa fie total alta variabila, deci e no-go.
+
+Mbine, hai sa vedem ce alte primitive putem sa-i mai punem in cap.
+
+La noi la tara se pun mutecsi. Si aici avem d'aia, hai sa vedem cum e.
+
+```rust
+fn main() {
+    let a: Vec<uint> = vec![];
+    let m = Mutex::new(a);
+
+    spawn(move || {
+        m.lock().push(1);
+        m.lock().push(2);
+        for x in m.lock().iter() {
+            println!("-> {}", x);
+        };
+    });
+
+    for x in m.lock().iter() {
+        println!("=> {}", x);
+    }
+}
+```
+
+Iar face figuri ca lucrurile sunt moved. Ok, clone to the rescue.
+
+```rust
+fn main() {
+    let a: Vec<uint> = vec![];
+    let m = Mutex::new(a);
+    let cloned_m = m.clone();
+
+    spawn(move || {
+        m.lock().push(1);
+        m.lock().push(2);
+        for x in m.lock().iter() {
+            println!("-> {}", x);
+        };
+    });
+
+    for x in cloned_m.lock().iter() {
+        println!("=> {}", x);
+    }
+}
+```
+
+> /Users/zmack/projects/rust-show/src/main.rs:18:22: 18:29 error: type `std::sync::mutex::Mutex<collections::vec::Vec<uint>>` does not implement any method in scope named `clone`
+> /Users/zmack/projects/rust-show/src/main.rs:18     let cloned_m = m.clone();
+
+Panameaaa.
+
+Ok, one more go. Hai sa bagam chestia asta sigur intr-un container de memorie care sa fie threadsafe.
+Arc pare sa fie cam ce vrem noi, si implementeaza clone, ceea ce e a-ok pentru noi.
+
+Partea de mutex merge ok pentru ca ne asigura ca avem accesul decent la resursa sanatatii.
+
+```rust
+fn main() {
+    let a: Vec<uint> = vec![];
+    let m = Mutex::new(a);
+    let rc = Arc::new(m);
+    let cloned_rc = rc.clone();
+
+    spawn(move || {
+        rc.lock().push(1);
+        rc.lock().push(2);
+        for x in rc.lock().iter() {
+            println!("-> {}", x);
+        };
+    });
+
+    for x in cloned_rc.lock().iter() {
+        println!("=> {}", x);
+    }
+}
+```
+
+> => 1
+> -> 1
+> -> 2
+
+Perfect. Just what the doctor ordered.
+ 
+## Channels. Everybody loves channels.
+
+Usually pentru chestiile de IPC cel mai usor e sa folosesti channels.
+
+Nu ca ar fi foarte grele chestiile astea, pur si simplu e mult mai terse,
+nu trebuie sa scrii foarte mult si toate chestiile de sharing sunt rezolvate
+pentru ca na, mesaje. There is no sharing.
+
+Enums sunt super misto pentru chestia asta. 
+
+```rust
+enum Message {
+    Numbers(Vec<uint>),
+    Die
+}
+
+fn main() {
+    let (tx, rx) = channel();
+
+    spawn(move || {
+        let x = vec![1u, 2u, 3u];
+        tx.send(Message::Numbers(x));
+    });
+
+    match rx.recv() {
+        Message::Numbers(z) => {
+            println!("Numbers!")
+            for x in z.iter() {
+                println!("-> {}", x);
+            }
+        },
+        _ => println!("Something else")
+    };
+}
+```
+
+
+Covered a loooot of shit. Like, a lot.
+
+## Cargo
+
+Dependency management is hard.
+Compiling shit is even harder ( well, daca nu stii make, i guess ).
+Cargo abstractizeaza toata chestia asta, iti pune o structura standard peste proiecte.
+Yehuda Katz, Carl Lerche and co. People know what they're doing.
+
+
+## Getting rust
+
+- get master ( https://github.com/rust-lang/rust/ )
+- ./configure, make, the works.
+- never look back.
+
+Nu prea are sens inca sa lucrezi cu altceva in afara de nightly. Rust se misca prea repede,
+you miss out on the fun.
+
+For the less adventurous, pe rust-lang ai niste versiuni.
+
+Ca timeline
+
+Rust 1.0.0-alpha – Friday, Jan 9, 2015 (omg bday)
+Rust 1.0.0-beta1 – Week of Feb 16, 2015
+Rust 1.0.0 – One or more six-week cycles late
+
+
+At some point 1st half 2015 - Rust 1.0.
+
+Post about it - http://blog.rust-lang.org/2014/12/12/1.0-Timeline.html
